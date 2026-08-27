@@ -1,0 +1,18 @@
+1
+Connect to WiFi
+In Arduino App Lab, click the network icon and connect the UNO Q to your WiFi network before creating the app.
+2
+Create a new App
+Open Arduino App Lab, click 'Create New App', give it a name (e.g. WebServerDashboard), and click Create.
+3
+Paste in the three files
+Put the sketch code in sketch/sketch.ino, the Python code in python/main.py (replacing existing content), and the HTML in a new assets/index.html file.
+4
+Install the Bridge library
+Click 'Add sketch library' in the left sidebar, search for Arduino_RouterBridge (by Arduino), and install it.
+5
+Add the WebUI Brick
+Click 'Add Brick' in the editor sidebar, find 'WebUI - HTML' in the catalog, and add it. This handles the HTTP server so you don't need Flask or anything else.
+6
+Run and open in a browser
+Click Run to compile and upload. The console will print something like 'WebUI started on http://192.168.x.x:7000'. Open that address on any device on the same WiFi network.
