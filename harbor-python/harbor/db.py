@@ -12,7 +12,19 @@ CREATE TABLE IF NOT EXISTS users (
   name          TEXT    NOT NULL,
   email         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
   password_hash TEXT    NOT NULL,
-  created_at    INTEGER NOT NULL
+  created_at    INTEGER NOT NULL,
+  totp_secret   TEXT,
+  totp_enabled  INTEGER NOT NULL DEFAULT 0,
+  totp_last_step INTEGER,
+  session_version INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash TEXT    NOT NULL,
+  used_at   INTEGER,
+  UNIQUE (user_id, code_hash)
 );
 
 CREATE TABLE IF NOT EXISTS items (
@@ -73,5 +85,18 @@ def run(sql, params=()):
     return conn().execute(sql, params)
 
 
+MIGRATIONS = {  # columns added after the first release: added to older databases on startup
+    "totp_secret": "TEXT",
+    "totp_enabled": "INTEGER NOT NULL DEFAULT 0",
+    "totp_last_step": "INTEGER",
+    "session_version": "INTEGER NOT NULL DEFAULT 0",
+}
+
+
 def init():
-    conn().executescript(SCHEMA)
+    c = conn()
+    c.executescript(SCHEMA)
+    have = {r["name"] for r in c.execute("PRAGMA table_info(users)").fetchall()}
+    for col, decl in MIGRATIONS.items():
+        if col not in have:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")

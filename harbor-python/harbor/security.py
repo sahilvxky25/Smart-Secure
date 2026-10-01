@@ -35,8 +35,9 @@ def check_password(password: str, stored: str) -> bool:
 
 
 # ------------------------------------------------------------------ sessions
-def start_session(response, user_id: int):
-    token = _serializer.dumps({"uid": user_id})
+def start_session(response, user_id: int, version: int = 0):
+    """`version` is the user's session_version; bumping it in the DB signs out every other device."""
+    token = _serializer.dumps({"uid": user_id, "v": version})
     response.set_cookie(config.COOKIE_NAME, token, max_age=config.SESSION_DAYS * 86400, httponly=True,
                         samesite="Lax", secure=config.COOKIE_SECURE, path="/")
 
@@ -51,8 +52,9 @@ def load_user():
     token = request.cookies.get(config.COOKIE_NAME)
     if token:
         try:
-            uid = _serializer.loads(token, max_age=config.SESSION_DAYS * 86400)["uid"]
-            g.user = db.one("SELECT id, name, email FROM users WHERE id = ?", (uid,))
+            payload = _serializer.loads(token, max_age=config.SESSION_DAYS * 86400)
+            user = db.one("SELECT id, name, email, session_version FROM users WHERE id = ?", (payload["uid"],))
+            g.user = user if user and user["session_version"] == payload.get("v", 0) else None
         except (BadSignature, KeyError, TypeError):
             g.user = None
 
@@ -97,7 +99,25 @@ class RateLimiter:
             self.hits.clear()
 
 
-auth_limiter = RateLimiter(limit=60, window_s=15 * 60)
+auth_limiter = RateLimiter(limit=60, window_s=15 * 60)      # per IP: register / login
+second_factor_limiter = RateLimiter(limit=10, window_s=15 * 60)  # per user: 2FA codes
+sensitive_limiter = RateLimiter(limit=10, window_s=15 * 60)      # per user: password re-checks in Security settings
+
+# ------------------------------------------------------------------ 2FA sign-in challenge
+_challenges = URLSafeTimedSerializer(config.SECRET, salt="harbor-2fa-challenge")
+CHALLENGE_SECONDS = 300
+
+
+def make_challenge(user_id: int) -> str:
+    """Proof that the password step succeeded; only good for the second step, for five minutes."""
+    return _challenges.dumps({"uid": user_id})
+
+
+def read_challenge(token) -> int:
+    try:
+        return int(_challenges.loads(str(token or ""), max_age=CHALLENGE_SECONDS)["uid"])
+    except (BadSignature, KeyError, TypeError, ValueError):
+        raise HttpError(401, "Your sign-in took too long. Start again.", code="challenge_expired")
 
 
 def json_body() -> dict:
