@@ -15,6 +15,14 @@ os.environ["STORAGE_QUOTA_BYTES"] = str(1024 * 1024)
 os.environ["MAX_FILE_BYTES"] = "600000"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import werkzeug.test as _wz_test  # noqa: E402
+
+# Werkzeug's test client spools big multipart request bodies to temp files it never closes
+# (a ResourceWarning in the tests, not in Harbor). Keep them in memory instead.
+_encode = _wz_test.stream_encode_multipart
+_wz_test.stream_encode_multipart = lambda data, use_tempfile=True, threshold=0, boundary=None: _encode(
+    data, use_tempfile=False, threshold=threshold, boundary=boundary)
+
 from harbor import config, create_app, security  # noqa: E402
 
 # Safety net: never run these tests against a real data directory.
@@ -177,6 +185,132 @@ class HarborTest(unittest.TestCase):
         self.assertEqual(anon.req("GET", "/").status_code, 200)
         self.assertEqual(anon.req("GET", "/css/style.css").status_code, 200)
         self.assertEqual(anon.req("GET", "/../harbor/config.py").status_code, 404)
+
+    def test_two_factor(self):
+        from harbor import twofactor
+        security.auth_limiter.reset()
+        security.second_factor_limiter.reset()
+        security.sensitive_limiter.reset()
+
+        # RFC 6238 test vectors (SHA-1, shown as the last 6 digits of the published 8-digit codes)
+        rfc = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+        for t, code in [(59, "287082"), (1111111109, "081804"), (1111111111, "050471"),
+                        (1234567890, "005924"), (2000000000, "279037")]:
+            self.assertEqual(twofactor.totp_at(rfc, t), code)
+
+        clock = {"t": 1_800_000_000.0}
+        twofactor._now = lambda: clock["t"]
+        try:
+            c, other, anon = Client(), Client(), Client()
+            c.req("POST", "/api/auth/register", {"name": "Tina", "email": "tina@example.com", "password": "tina tina tina"})
+            self.assertEqual(c.req("GET", "/api/auth/2fa").json, {"enabled": False, "recoveryCodesLeft": 0})
+            # a second signed-in device, to check it gets signed out when 2FA is switched on
+            other.req("POST", "/api/auth/login", {"email": "tina@example.com", "password": "tina tina tina"})
+            self.assertEqual(other.req("GET", "/api/items").status_code, 200)
+
+            # setup needs the password; enabling needs a correct code
+            self.assertEqual(c.req("POST", "/api/auth/2fa/setup", {"password": "wrong"}).status_code, 403)
+            setup = c.req("POST", "/api/auth/2fa/setup", {"password": "tina tina tina"}).json
+            self.assertRegex(setup["secret"], r"^[A-Z2-7]{32}$")
+            self.assertTrue(setup["otpauth"].startswith("otpauth://totp/Harbor:tina%40example.com?secret=" + setup["secret"]))
+            self.assertTrue(setup["qr"].startswith("data:image/svg+xml"))
+            self.assertEqual(c.req("POST", "/api/auth/2fa/enable", {"code": "000000"}).status_code, 400)
+            self.assertEqual(c.req("GET", "/api/auth/2fa").json["enabled"], False)  # not on until a code checks out
+            en = c.req("POST", "/api/auth/2fa/enable", {"code": twofactor.totp_at(setup["secret"])})
+            self.assertEqual(en.status_code, 200)
+            recovery = en.json["recoveryCodes"]
+            self.assertEqual(len(recovery), 10)
+            self.assertRegex(recovery[0], r"^[a-z2-9]{5}-[a-z2-9]{5}$")
+            self.assertEqual(c.req("GET", "/api/items").status_code, 200)        # this device stays signed in
+            self.assertEqual(other.req("GET", "/api/items").status_code, 401)    # other devices are signed out
+            self.assertEqual(c.req("GET", "/api/auth/2fa").json, {"enabled": True, "recoveryCodesLeft": 10})
+
+            # sign-in is now two steps
+            r = anon.req("POST", "/api/auth/login", {"email": "tina@example.com", "password": "tina tina tina"})
+            self.assertEqual(r.status_code, 200)
+            self.assertTrue(r.json["twoFactor"])
+            self.assertNotIn("user", r.json)
+            self.assertNotIn("Set-Cookie", r.headers)                             # no session after step one
+            self.assertEqual(anon.req("GET", "/api/items").status_code, 401)
+            challenge = r.json["challenge"]
+            step2 = lambda code, ch=None: anon.req("POST", "/api/auth/login/2fa", {"challenge": ch or challenge, "code": code})  # noqa: E731
+            self.assertEqual(step2("123456").status_code, 401)
+            self.assertEqual(step2("").status_code, 401)
+            self.assertEqual(step2("anything", "not-a-real-challenge").json["code"], "challenge_expired")
+            good = twofactor.totp_at(setup["secret"])
+            self.assertIn("already used", step2(good).json["error"])              # the code used to enable can't be reused
+            clock["t"] += 30
+            good = twofactor.totp_at(setup["secret"])
+            ok = step2(f"{good[:3]} {good[3:]}")                                  # spaces are fine
+            self.assertEqual(ok.status_code, 200)
+            self.assertEqual(ok.json["user"]["email"], "tina@example.com")
+            self.assertFalse(ok.json["usedRecoveryCode"])
+            self.assertEqual(anon.req("GET", "/api/items").status_code, 200)
+            self.assertIn("already used", step2(good).json["error"])              # replay of a used code is refused
+
+            # clock drift: the neighbouring 30-second codes are accepted, older ones aren't
+            anon2 = Client()
+            def login2(code):
+                ch = anon2.req("POST", "/api/auth/login", {"email": "tina@example.com", "password": "tina tina tina"}).json["challenge"]
+                return anon2.req("POST", "/api/auth/login/2fa", {"challenge": ch, "code": code})
+            clock["t"] += 30
+            self.assertEqual(login2(twofactor.totp_at(setup["secret"], clock["t"] + 30)).status_code, 200)   # next step
+            clock["t"] += 300
+            self.assertEqual(login2(twofactor.totp_at(setup["secret"], clock["t"] - 120)).status_code, 401)  # 4 steps old
+
+            # expired challenge
+            r = anon.req("POST", "/api/auth/login", {"email": "tina@example.com", "password": "tina tina tina"})
+            real_max = security.CHALLENGE_SECONDS
+            security.CHALLENGE_SECONDS = -1
+            try:
+                self.assertEqual(step2(twofactor.totp_at(setup["secret"]), r.json["challenge"]).json["code"], "challenge_expired")
+            finally:
+                security.CHALLENGE_SECONDS = real_max
+
+            # recovery codes work once each
+            anon3 = Client()
+            def login_with(code):
+                ch = anon3.req("POST", "/api/auth/login", {"email": "tina@example.com", "password": "tina tina tina"}).json["challenge"]
+                return anon3.req("POST", "/api/auth/login/2fa", {"challenge": ch, "code": code})
+            rc = login_with(recovery[0].upper())                                   # case-insensitive
+            self.assertEqual(rc.status_code, 200)
+            self.assertTrue(rc.json["usedRecoveryCode"])
+            self.assertEqual(rc.json["recoveryCodesLeft"], 9)
+            self.assertEqual(login_with(recovery[0]).status_code, 401)             # already spent
+            self.assertEqual(login_with("zzzzz-zzzzz").status_code, 401)
+
+            # per-user brute-force limit on the second step
+            security.second_factor_limiter.reset()
+            codes = [login_with("000000").status_code for _ in range(12)]
+            self.assertEqual(codes[:10], [401] * 10)
+            self.assertEqual(codes[10], 429)
+            security.second_factor_limiter.reset()
+
+            # regenerate recovery codes: needs password + a live authenticator code (not a recovery code)
+            clock["t"] += 60
+            self.assertEqual(c.req("POST", "/api/auth/2fa/recovery-codes", {"password": "nope", "code": twofactor.totp_at(setup["secret"])}).status_code, 403)
+            self.assertEqual(c.req("POST", "/api/auth/2fa/recovery-codes", {"password": "tina tina tina", "code": recovery[1]}).status_code, 400)
+            regen = c.req("POST", "/api/auth/2fa/recovery-codes", {"password": "tina tina tina", "code": twofactor.totp_at(setup["secret"])})
+            self.assertEqual(regen.status_code, 200)
+            self.assertEqual(len(regen.json["recoveryCodes"]), 10)
+            self.assertEqual(login_with(recovery[1]).status_code, 401)             # old codes are dead
+
+            # turning it off needs password + code, then sign-in is one step again
+            clock["t"] += 60
+            self.assertEqual(c.req("POST", "/api/auth/2fa/disable", {"password": "tina tina tina", "code": "000000"}).status_code, 400)
+            self.assertEqual(c.req("POST", "/api/auth/2fa/disable", {"password": "bad", "code": twofactor.totp_at(setup["secret"])}).status_code, 403)
+            off = c.req("POST", "/api/auth/2fa/disable", {"password": "tina tina tina", "code": twofactor.totp_at(setup["secret"])})
+            self.assertEqual(off.status_code, 200)
+            self.assertEqual(c.req("GET", "/api/items").status_code, 200)
+            self.assertEqual(c.req("GET", "/api/auth/2fa").json["enabled"], False)
+            self.assertEqual(anon.req("GET", "/api/items").status_code, 401)      # devices signed in via 2FA were signed out
+            plain = Client().req("POST", "/api/auth/login", {"email": "tina@example.com", "password": "tina tina tina"})
+            self.assertIn("user", plain.json)
+            self.assertNotIn("twoFactor", plain.json)
+        finally:
+            del twofactor._now
+            import time as _t
+            twofactor._now = lambda: _t.time()
 
     def test_zip_streaming_of_larger_files(self):
         c = Client()
