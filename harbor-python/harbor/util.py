@@ -29,10 +29,11 @@ _BAD_NAME_RE = re.compile(r"[/\\\x00-\x1f]")
 
 
 class HttpError(Exception):
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, code: str | None = None):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.code = code
 
 
 def now_ms() -> int:

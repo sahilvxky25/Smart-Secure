@@ -131,7 +131,10 @@ def create_app() -> Flask:
     # ---- Errors
     @app.errorhandler(HttpError)
     def _http_error(e):
-        return jsonify(error=e.message), e.status
+        body = {"error": e.message}
+        if e.code:
+            body["code"] = e.code
+        return jsonify(body), e.status
 
     @app.errorhandler(RequestEntityTooLarge)
     def _too_large(_e):
