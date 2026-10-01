@@ -1,0 +1,16 @@
+# Copy to /etc/systemd/system/mediaserver.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mediaserver
+[Unit]
+Description=UNO Q Media Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=arduino
+WorkingDirectory=/home/arduino/uno_q_media
+Environment=MEDIA_TOKEN=CHANGEME
+ExecStart=/usr/bin/python3 /home/arduino/uno_q_media/main.py --root /home/arduino/media
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>UNO Q Media</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>UNO Q Media <small id="count"></small></h1>
+    <input id="q" type="search" placeholder="Search library…" autocomplete="off">
+    <div class="chips" id="chips">
+      <button data-k="all" class="on">All</button>
+      <button data-k="video">Video</button>
+      <button data-k="audio">Audio</button>
+      <button data-k="image">Images</button>
+      <button id="rescan">↻ Rescan</button>
+    </div>
+  </header>
+  <div id="player" hidden></div>
+  <ul id="list"></ul>
+  <script src="/static/app.js"></script>
+</body>
+</html>
