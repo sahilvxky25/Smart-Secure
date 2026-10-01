@@ -18,6 +18,7 @@ For development with auto-reload use `python run.py --debug`.
 ## Features
 
 - Accounts: register, sign in/out (httpOnly session cookie)
+- 2-step verification: authenticator-app codes (TOTP) with QR setup and one-time recovery codes; turn on under avatar → Security
 - Views: My Drive, Shared with me, Recent, Starred, Trash, Search
 - Folders; upload files or whole folders (button or drag-and-drop) with a progress panel, cancel, and parallel uploads
 - Download files (with HTTP range support, so video/audio can seek); download folders as a streamed zip
@@ -46,11 +47,13 @@ Environment variables (see `.env.example`):
 ## Project structure
 
 ```
+manage.py                 admin commands (list users, reset a locked-out user's 2FA)
 run.py                    entry point (Waitress server; --debug for Flask's dev server)
 harbor/app.py             app factory, error handlers, upload spooling, background purge
 harbor/config.py          environment config
 harbor/db.py              SQLite schema and per-thread connections
 harbor/security.py        scrypt passwords, signed session cookie, rate limiting, same-origin check
+harbor/twofactor.py       TOTP (RFC 6238), recovery codes, QR generation
 harbor/items.py           item tree, permissions, listing, trash logic
 harbor/files.py           file streaming and on-the-fly zip
 harbor/routes_*.py        auth, items, sharing, public-link endpoints
@@ -62,6 +65,8 @@ tests/test_api.py         end-to-end API tests
 
 ```
 POST /api/auth/register | login | logout      GET /api/auth/me
+POST /api/auth/login/2fa {challenge, code}    (second sign-in step when 2FA is on)
+GET  /api/auth/2fa                            POST /api/auth/2fa/setup | enable | disable | recovery-codes
 GET  /api/storage
 GET  /api/items?view=drive|shared|recent|starred|trash|search&parent=&q=&sort=&dir=
 POST /api/items/folder                        POST /api/items/upload?parentId=
@@ -74,9 +79,20 @@ DELETE /api/items/:id/shares/:userId          POST /api/items/:id/link
 GET  /api/public/:token[?folder=]             GET /api/public/:token/download/:id
 ```
 
+## 2-step verification
+
+Turn it on from the avatar menu → **Security**: enter your password, scan the QR code with an authenticator app (Google Authenticator, 1Password, Authy, Microsoft Authenticator, ...), and type the 6-digit code to confirm. Harbor then shows 10 one-time **recovery codes**; keep them somewhere safe.
+
+- Signing in becomes two steps: password, then a code. A recovery code works in place of an authenticator code (each once).
+- Turning 2FA on or off signs out every other device.
+- Turning it off, or making new recovery codes, needs your password and a current code.
+- Codes are single-use (a code can't be replayed within its 30-second window), and wrong guesses are rate limited per account.
+- **Locked out** (lost phone *and* recovery codes)? On the server run `python manage.py disable-2fa you@example.com`. There is no email-based reset, so anyone with server access is the recovery path.
+
 ## Security notes
 
 - Passwords are hashed with scrypt (Python standard library). Sessions are signed tokens in an httpOnly, SameSite=Lax cookie. State-changing requests are same-origin checked, and login/register are rate limited (in memory, per IP).
+- The authenticator secret is stored in the SQLite database in plain form (the server has to be able to compute codes), so protect `DATA_DIR` with file permissions and disk encryption. Recovery codes are stored only as keyed hashes.
 - Files are stored on disk under random names, never their user-supplied names. Uploads stream to disk (never held in memory) and the per-file limit is enforced while streaming.
 - Only images, video, audio, PDF and text are served inline. HTML and everything else is served as `text/plain` or as a download, with `nosniff` and a sandbox CSP, so uploaded files cannot run scripts on your origin.
 
