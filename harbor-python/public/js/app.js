@@ -66,7 +66,7 @@
   // ====================================================================
   // API
   // ====================================================================
-  class ApiError extends Error { constructor(message, status) { super(message); this.status = status; } }
+  class ApiError extends Error { constructor(message, status, code) { super(message); this.status = status; this.code = code; } }
 
   async function api(method, url, body, { quiet = false } = {}) {
     const init = { method, credentials: 'same-origin', headers: {} };
@@ -77,7 +77,7 @@
     try { data = await res.json(); } catch { /* empty body */ }
     if (!res.ok) {
       if (res.status === 401 && !quiet && state.user) sessionExpired();
-      throw new ApiError((data && data.error) || `Request failed (${res.status}).`, res.status);
+      throw new ApiError((data && data.error) || `Request failed (${res.status}).`, res.status, data && data.code);
     }
     return data;
   }
@@ -273,12 +273,65 @@
         const payload = { email: $('#a-email').value, password: $('#a-pass').value };
         if (!login) payload.name = $('#a-name').value;
         const res = await api('POST', `/api/auth/${login ? 'login' : 'register'}`, payload, { quiet: true });
+        if (res.twoFactor) { renderTwoFactor(res.challenge); return; }
         state.user = res.user;
         location.hash = '#/drive';
         await startApp();
       } catch (ex) {
         err.textContent = ex.message;
         btn.disabled = false;
+      }
+    });
+  }
+
+  function renderTwoFactor(challenge) {
+    let recovery = false;
+    $('#root').innerHTML = `
+      <div class="auth">
+        <form class="auth-card" id="tfForm" novalidate>
+          <div class="brand">${LOGO}<span>Harbor</span></div>
+          <h1>Two-step verification</h1>
+          <p class="sub" id="tfSub"></p>
+          <div class="field"><label for="tf-code" id="tfLabel"></label><input class="input otp" id="tf-code" autocomplete="one-time-code" spellcheck="false" autocapitalize="off" required></div>
+          <p class="form-error" id="tfErr" role="alert"></p>
+          <button class="btn primary" type="submit">Verify</button>
+          <p class="auth-switch"><button type="button" class="link-btn" id="tfToggle"></button></p>
+          <p class="auth-switch" style="margin-top:8px"><button type="button" class="link-btn" id="tfBack">Back to sign in</button></p>
+        </form>
+      </div>`;
+    const input = $('#tf-code');
+    const paint = () => {
+      $('#tfSub').textContent = recovery ? 'Enter one of the recovery codes you saved when you turned this on.' : 'Open your authenticator app and enter the 6-digit code for Harbor.';
+      $('#tfLabel').textContent = recovery ? 'Recovery code' : 'Authentication code';
+      input.value = ''; input.maxLength = recovery ? 11 : 7;
+      input.inputMode = recovery ? 'text' : 'numeric';
+      input.placeholder = recovery ? 'xxxxx-xxxxx' : '123 456';
+      $('#tfToggle').textContent = recovery ? 'Use my authenticator app instead' : 'Use a recovery code instead';
+      $('#tfErr').textContent = '';
+      input.focus();
+    };
+    paint();
+    $('#tfToggle').onclick = () => { recovery = !recovery; paint(); };
+    $('#tfBack').onclick = () => renderAuth('login');
+    $('#tfForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = $('#tfErr');
+      const btn = $('button[type="submit"]', e.target);
+      err.textContent = '';
+      btn.disabled = true;
+      try {
+        const res = await api('POST', '/api/auth/login/2fa', { challenge, code: input.value }, { quiet: true });
+        state.user = res.user;
+        location.hash = '#/drive';
+        await startApp();
+        if (res.usedRecoveryCode) {
+          toast(res.recoveryCodesLeft > 0 ? `You signed in with a recovery code. ${res.recoveryCodesLeft} left.` : 'That was your last recovery code. Make new ones in Security.', { error: res.recoveryCodesLeft < 3 });
+        }
+      } catch (ex) {
+        if (ex.code === 'challenge_expired') { renderAuth('login'); $('#authErr').textContent = ex.message; return; }
+        err.textContent = ex.message;
+        btn.disabled = false;
+        input.select();
       }
     });
   }
@@ -370,6 +423,7 @@
     };
     $('#userBtn').onclick = (e) => menuBelow(e.currentTarget, [
       { heading: `${state.user.name} (${state.user.email})` },
+      { label: 'Security', icon: 'shield', onClick: openSecurity },
       { label: 'Sign out', icon: 'logout', onClick: signOut },
     ]);
 
@@ -406,6 +460,127 @@
     };
 
     bindContent();
+  }
+
+  // ====================================================================
+  // Security: 2-step verification
+  // ====================================================================
+  function openSecurity() {
+    const m = openModal({ title: 'Security', body: '<p>Loading…</p>' });
+    const title = (t) => { $('h2', m.el).textContent = t; };
+    const show = (html, bind) => {
+      m.body.innerHTML = html;
+      if (bind) bind(m.body);
+      const first = $('input:not([type=checkbox])', m.body) || $('button.primary', m.body);
+      if (first) first.focus();
+    };
+    const fail = (el, ex) => { $('.form-error', el).textContent = ex.message; };
+    const passwordField = (id = 'sp') => `<div class="field"><label for="${id}">Password</label><input class="input" id="${id}" type="password" autocomplete="current-password" required></div>`;
+
+    async function home() {
+      title('Security');
+      let s;
+      try { s = await api('GET', '/api/auth/2fa', undefined, { quiet: true }); } catch (ex) { show(`<p class="form-error">${esc(ex.message)}</p>`); return; }
+      if (!s.enabled) {
+        show(`
+          <div class="sec-head"><strong>2-step verification</strong><span class="badge">Off</span></div>
+          <p>Add a second lock to your account. After your password, Harbor asks for a 6-digit code from an authenticator app such as Google Authenticator, 1Password, Authy or Microsoft Authenticator.</p>
+          <div class="sec-actions"><button class="btn primary" id="sec-on">Set up</button></div>`,
+        (b) => { $('#sec-on', b).onclick = askPassword; });
+      } else {
+        show(`
+          <div class="sec-head"><strong>2-step verification</strong><span class="badge on">On</span></div>
+          <p>Signing in needs your password and a code from your authenticator app.</p>
+          <p>${s.recoveryCodesLeft} recovery code${s.recoveryCodesLeft === 1 ? '' : 's'} left${s.recoveryCodesLeft < 3 ? ' — make new ones soon.' : '.'}</p>
+          <div class="sec-actions"><button class="btn" id="sec-new">New recovery codes</button><button class="btn danger" id="sec-off">Turn off</button></div>`,
+        (b) => {
+          $('#sec-new', b).onclick = () => confirmAction('regen');
+          $('#sec-off', b).onclick = () => confirmAction('disable');
+        });
+      }
+    }
+
+    function askPassword() {
+      title('Set up 2-step verification');
+      show(`<form><p>Enter your password to continue.</p>${passwordField()}<p class="form-error" role="alert"></p>
+        <div class="sec-actions"><button type="button" class="btn" data-back>Cancel</button><button class="btn primary" type="submit">Continue</button></div></form>`, (b) => {
+        $('[data-back]', b).onclick = home;
+        $('form', b).onsubmit = async (e) => {
+          e.preventDefault();
+          const btn = $('button[type=submit]', b);
+          btn.disabled = true;
+          try { scan(await api('POST', '/api/auth/2fa/setup', { password: $('#sp', b).value }, { quiet: true })); } catch (ex) { fail(b, ex); btn.disabled = false; }
+        };
+      });
+    }
+
+    function scan(setup) {
+      title('Scan the QR code');
+      show(`<form>
+        <p>1. In your authenticator app, add an account by scanning this code.</p>
+        <div class="qr"><img src="${esc(setup.qr)}" alt="QR code for 2-step verification" width="184" height="184"></div>
+        <p>Can't scan? Enter this key by hand:</p>
+        <div class="secret"><code>${esc(setup.secret.match(/.{1,4}/g).join(' '))}</code><button type="button" class="btn small" id="cp">Copy</button></div>
+        <div class="field" style="margin-top:14px"><label for="sc">2. Enter the 6-digit code the app shows</label><input class="input otp" id="sc" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123 456" required></div>
+        <p class="form-error" role="alert"></p>
+        <div class="sec-actions"><button type="button" class="btn" data-back>Cancel</button><button class="btn primary" type="submit">Turn on</button></div></form>`, (b) => {
+        $('[data-back]', b).onclick = home;
+        $('#cp', b).onclick = async () => { try { await navigator.clipboard.writeText(setup.secret); toast('Key copied'); } catch { toast('Couldn\'t copy. Select the key and copy it.', { error: true }); } };
+        $('form', b).onsubmit = async (e) => {
+          e.preventDefault();
+          const btn = $('button[type=submit]', b);
+          btn.disabled = true;
+          try {
+            const res = await api('POST', '/api/auth/2fa/enable', { code: $('#sc', b).value }, { quiet: true });
+            codes(res.recoveryCodes, '2-step verification is on. Other devices were signed out.');
+          } catch (ex) { fail(b, ex); btn.disabled = false; $('#sc', b).select(); }
+        };
+      });
+    }
+
+    function codes(list, intro) {
+      title('Save your recovery codes');
+      show(`<p>${esc(intro)} If you lose your phone, each of these codes lets you sign in once. They are shown only now — keep them somewhere safe, like a password manager.</p>
+        <ul class="codes">${list.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
+        <div class="sec-actions start"><button type="button" class="btn small" id="cc">Copy</button><button type="button" class="btn small" id="dc">Download</button></div>
+        <label class="check"><input type="checkbox" id="saved"> I've saved these codes</label>
+        <div class="sec-actions"><button class="btn primary" id="done" disabled>Done</button></div>`, (b) => {
+        const text = `Harbor recovery codes for ${state.user.email}\nEach code works once.\n\n${list.join('\n')}\n`;
+        $('#cc', b).onclick = async () => { try { await navigator.clipboard.writeText(list.join('\n')); toast('Codes copied'); } catch { toast('Couldn\'t copy. Select the codes and copy them.', { error: true }); } };
+        $('#dc', b).onclick = () => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+          a.download = 'harbor-recovery-codes.txt';
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        };
+        $('#saved', b).onchange = (e) => { $('#done', b).disabled = !e.target.checked; };
+        $('#done', b).onclick = home;
+      });
+    }
+
+    function confirmAction(kind) {
+      const off = kind === 'disable';
+      title(off ? 'Turn off 2-step verification' : 'New recovery codes');
+      show(`<form><p>${off ? 'This makes your account depend on your password alone.' : 'Your current recovery codes will stop working.'} Confirm it\'s you.</p>
+        ${passwordField()}
+        <div class="field"><label for="cc2">${off ? 'Authenticator code (or a recovery code)' : 'Authenticator code'}</label><input class="input otp" id="cc2" autocomplete="one-time-code" maxlength="11" required></div>
+        <p class="form-error" role="alert"></p>
+        <div class="sec-actions"><button type="button" class="btn" data-back>Cancel</button><button class="btn ${off ? 'danger' : 'primary'}" type="submit">${off ? 'Turn off' : 'Make new codes'}</button></div></form>`, (b) => {
+        $('[data-back]', b).onclick = home;
+        $('form', b).onsubmit = async (e) => {
+          e.preventDefault();
+          const btn = $('button[type=submit]', b);
+          btn.disabled = true;
+          try {
+            const res = await api('POST', off ? '/api/auth/2fa/disable' : '/api/auth/2fa/recovery-codes', { password: $('#sp', b).value, code: $('#cc2', b).value }, { quiet: true });
+            if (off) { toast('2-step verification is off'); home(); } else codes(res.recoveryCodes, 'Here are your new codes.');
+          } catch (ex) { fail(b, ex); btn.disabled = false; }
+        };
+      });
+    }
+
+    home();
   }
 
   async function signOut() {
