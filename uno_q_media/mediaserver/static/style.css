@@ -1,0 +1,27 @@
+:root{--bg:#0f1115;--card:#181b22;--fg:#e8eaf0;--mut:#8b93a7;--ac:#00b3a4;--bd:#262a35}
+@media (prefers-color-scheme:light){:root{--bg:#f5f6f8;--card:#fff;--fg:#14161c;--mut:#667085;--bd:#e3e6ec}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:12px;border-bottom:1px solid var(--bd)}
+h1{font-size:17px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+h1 small{color:var(--mut);font-weight:400}
+input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:15px}
+.chips{display:flex;gap:6px;margin-top:8px;overflow-x:auto}
+.chips button,.login button{border:1px solid var(--bd);background:var(--card);color:var(--fg);padding:6px 12px;border-radius:999px;font-size:13px;white-space:nowrap}
+.chips button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+#player{padding:12px;background:var(--card);border-bottom:1px solid var(--bd)}
+#player video,#player img{width:100%;max-height:60vh;background:#000;border-radius:10px;object-fit:contain}
+#player audio{width:100%}
+#player .t{margin-top:8px;font-weight:600}
+ul{list-style:none;margin:0;padding:8px}
+li{display:flex;gap:12px;align-items:center;padding:10px;border-radius:10px;cursor:pointer}
+li:hover,li.on{background:var(--card)}
+li.on b{color:var(--ac)}
+li .ic{font-size:22px;width:30px;text-align:center}
+li div{min-width:0}
+li b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li small{color:var(--mut)}
+li.empty{justify-content:center;color:var(--mut);cursor:default;padding:2rem}
+li.login{display:block;cursor:default}
+li.login form{display:flex;gap:8px}
+li.login p{margin:0 0 8px;color:var(--mut)}
