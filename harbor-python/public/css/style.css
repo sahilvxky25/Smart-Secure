@@ -393,3 +393,17 @@ a { color: var(--accent); }
 .scrim { display: none; }
 @media (max-width: 820px) { body.nav-open .scrim { display: block; } }
 .crumbs a { display: inline-block; }
+
+/* ---------- Two-step verification ---------- */
+.input.otp { font: 600 18px/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .12em; text-align: center; }
+.sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.sec-head strong { font: 700 16px/1.2 var(--font-display); }
+.badge { padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font-weight: 600; font-size: 12px; border: 1px solid var(--line); }
+.badge.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.sec-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 14px 0 8px; }
+.sec-actions.start { justify-content: flex-start; margin-top: 0; }
+.qr { width: fit-content; margin: 8px auto 12px; padding: 10px; border-radius: 12px; background: #fff; border: 1px solid var(--line); line-height: 0; }
+.secret { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.secret code { font: 600 13px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .06em; overflow-wrap: anywhere; color: var(--ink); }
+.codes { list-style: none; margin: 10px 0 12px; padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font: 600 14px/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--ink); user-select: all; }
+.check { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink-2); }
