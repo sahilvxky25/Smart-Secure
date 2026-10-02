@@ -1,0 +1,8 @@
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+aiosmtpd>=1.4.6
+nh3>=0.2.20
+dnspython>=2.6
+dkimpy>=1.1
+python-dotenv>=1.0
