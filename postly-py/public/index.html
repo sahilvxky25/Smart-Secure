@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Mail</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230f766e'/%3E%3Cpath d='M5 8l7 5 7-5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Sign in / sign up -->
+  <main id="auth" class="auth" hidden>
+    <form id="authForm" class="auth-card" autocomplete="on">
+      <div class="brand brand-lg"><span class="brand-mark" data-icon="mail"></span><span class="app-name">Mail</span></div>
+      <h1 id="authTitle">Sign in</h1>
+      <label class="field reg-only" hidden>Your name<input name="name" autocomplete="name"></label>
+      <label class="field">
+        <span id="authIdLabel">Email</span>
+        <span class="addr-input"><input name="username" autocomplete="username" required><span class="domain-suffix reg-only" hidden></span></span>
+      </label>
+      <label class="field">Password<input name="password" type="password" autocomplete="current-password" required minlength="8"></label>
+      <p id="authError" class="error" role="alert"></p>
+      <button class="btn primary wide" id="authSubmit" type="submit">Sign in</button>
+      <p class="auth-switch"><span id="authSwitchText">New here?</span> <button type="button" class="link" id="authSwitch">Create an account</button></p>
+    </form>
+  </main>
+
+  <!-- Main app -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <button class="icon-btn menu-btn" data-action="toggle-nav" aria-label="Main menu" data-icon="menu"></button>
+      <a class="brand" href="#/inbox"><span class="brand-mark" data-icon="mail"></span><span class="app-name">Mail</span></a>
+      <form id="searchForm" class="search" role="search">
+        <button class="icon-btn" type="submit" aria-label="Search" data-icon="search"></button>
+        <input id="searchInput" type="search" placeholder="Search mail  (from: to: subject: has:attachment is:unread)" autocomplete="off" aria-label="Search mail">
+      </form>
+      <button class="avatar" id="avatarBtn" data-action="open-settings" aria-label="Account and settings"></button>
+    </header>
+
+    <div class="scrim" data-action="close-nav"></div>
+    <nav class="sidebar" id="sidebar" aria-label="Mailboxes">
+      <button class="compose-btn" data-action="compose"><span data-icon="pencil"></span>Compose</button>
+      <ul id="folderList" class="nav-list"></ul>
+      <div class="nav-heading"><span>Labels</span><button class="icon-btn sm" data-action="manage-labels" aria-label="Manage labels" data-icon="plus"></button></div>
+      <ul id="labelList" class="nav-list"></ul>
+    </nav>
+
+    <main class="main" id="main"></main>
+  </div>
+
+  <div id="composeDock" class="compose-dock"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <dialog id="dialog"></dialog>
+
+  <script src="/util.js"></script>
+  <script src="/compose.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
