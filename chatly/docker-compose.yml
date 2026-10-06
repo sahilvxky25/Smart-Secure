@@ -1,0 +1,25 @@
+# One-command production setup with automatic HTTPS (Caddy + Let's Encrypt).
+#   1. Point a DNS A record for your domain at this server
+#   2. cp .env.example .env   and edit DOMAIN + MASTER_KEY
+#   3. docker compose up -d --build
+services:
+  chatly:
+    build: .
+    restart: unless-stopped
+    environment:
+      MASTER_KEY: ${MASTER_KEY:-}
+      FORWARDED_ALLOW_IPS: "*"      # safe: port 8000 is not published, only Caddy can reach it
+    volumes: [chatly-data:/data]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [chatly]
+volumes:
+  chatly-data:
+  caddy-data:
