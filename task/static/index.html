@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tasks</title>
+<style>
+:root{--bg:#fff;--fg:#1f1f1f;--mut:#5f6368;--line:#e0e3e7;--hov:#f1f3f4;--sel:#d3e3fd;--pri:#0b57d0;--card:#fff;--star:#f9ab00;--over:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#1b1b1f;--fg:#e3e3e3;--mut:#a8abb0;--line:#3c3f44;--hov:#2a2c31;--sel:#2b4a7a;--pri:#a8c7fa;--card:#26282d;--star:#fbbc04;--over:#f2b8b5}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font:14px/1.4 "Google Sans",Roboto,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;border-radius:20px;padding:8px 14px}
+button:hover{background:var(--hov)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--pri);outline-offset:1px}
+input,select,textarea{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+.pri{background:var(--pri);color:var(--bg);font-weight:500}.pri:hover{background:var(--pri);opacity:.9}
+.err{color:var(--over);min-height:1.3em;margin:6px 0}
+#auth{display:grid;place-items:center;height:100%}
+#auth form{width:min(380px,92vw);padding:32px;border:1px solid var(--line);border-radius:24px;display:grid;gap:12px}
+#auth h1{margin:0 0 4px;font-size:24px;font-weight:500}
+header{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line)}
+header h1{font-size:20px;font-weight:500;margin:0;flex:1}
+#app{display:none;height:100%;flex-direction:column}
+.body{flex:1;display:flex;min-height:0}
+nav{width:256px;padding:12px 8px;overflow:auto;border-right:1px solid var(--line)}
+nav button{display:flex;width:100%;text-align:left;border-radius:0 20px 20px 0;padding:9px 16px;gap:10px}
+nav button.on{background:var(--sel);font-weight:600}
+nav .new{border:1px solid var(--line);border-radius:20px;margin-bottom:10px;width:auto}
+main{flex:1;overflow:auto;padding:20px 24px}
+.wrap{max-width:720px;margin:0 auto}
+.top{display:flex;align-items:center;gap:8px}.top h2{flex:1;font-size:22px;font-weight:500;margin:0}
+.menu{position:relative}.pop{position:absolute;right:0;top:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 0;min-width:210px;z-index:5;box-shadow:0 4px 16px #0003;display:none}
+.pop.show{display:block}.pop button{display:block;width:100%;text-align:left;border-radius:0}.pop .sep{height:1px;background:var(--line);margin:4px 0}.pop .ck:before{content:"✓ ";visibility:hidden}.pop .ck.on:before{visibility:visible}
+.add{display:flex;gap:10px;align-items:center;color:var(--pri);padding:10px 4px;font-weight:500;width:100%;border-radius:8px}
+.row{display:flex;align-items:flex-start;gap:6px;padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px}
+.row:hover{background:var(--hov)}.row.sub{margin-left:34px}.row.drag{opacity:.4}.row.over{box-shadow:0 -2px 0 var(--pri)}
+.chk{width:20px;height:20px;border:2px solid var(--mut);border-radius:50%;margin:2px 6px;flex:none;padding:0;display:grid;place-items:center;font-size:12px}
+.done .chk{background:var(--pri);border-color:var(--pri);color:var(--bg)}.done .t{text-decoration:line-through;color:var(--mut)}
+.tx{flex:1;min-width:0}.t{overflow-wrap:anywhere}.d{color:var(--mut);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:8px;padding:0 8px;font-size:12px;margin-top:3px}.chip.over{color:var(--over);border-color:var(--over)}
+.star{color:var(--mut);padding:2px 8px;font-size:18px}.star.on{color:var(--star)}
+.empty{text-align:center;color:var(--mut);padding:56px 0}
+.sec{margin-top:18px;color:var(--mut);font-weight:500;width:100%;text-align:left;border-radius:8px}
+dialog{border:0;border-radius:24px;background:var(--card);color:var(--fg);padding:24px;width:min(460px,94vw);box-shadow:0 8px 40px #0006}
+dialog::backdrop{background:#0006}dialog h3{margin:0 0 14px;font-weight:500;font-size:20px}
+dialog label{display:block;margin:10px 0 4px;color:var(--mut);font-size:12px}.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+@media(max-width:700px){nav{position:fixed;inset:56px auto 0 0;background:var(--bg);z-index:4;transform:translateX(-100%);transition:transform .2s}nav.open{transform:none}main{padding:14px}.mb{display:inline-block!important}}
+.mb{display:none}@media(prefers-reduced-motion:reduce){nav{transition:none}}
+</style></head><body>
+
+<div id="auth"><form id="authForm">
+  <h1 id="authTitle">Sign in</h1>
+  <input id="em" type="email" placeholder="Email" autocomplete="email" required>
+  <input id="pw" type="password" placeholder="Password (8+ characters)" autocomplete="current-password" required>
+  <div class="err" id="authErr"></div>
+  <button class="pri" id="authBtn">Sign in</button>
+  <button type="button" id="authSwap">Create an account</button>
+</form></div>
+
+<div id="app">
+  <header><button class="mb" id="burger" aria-label="Lists">☰</button><h1>Tasks</h1>
+    <div class="menu"><button id="acctBtn"></button>
+      <div class="pop" id="acctPop"><button id="chPw">Change password</button><div class="sep"></div><button id="out">Sign out</button></div></div></header>
+  <div class="body"><nav id="nav"></nav><main><div class="wrap" id="view"></div></main></div>
+</div>
+
+<dialog id="dlg"></dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const api=async(m,u,b)=>{const r=await fetch('/api/'+u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
+  const j=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401&&u!=='login')showAuth();throw new Error(j.error||'Something went wrong')}return j};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let S={lists:[],tasks:[],cur:null,sort:'my',showDone:false,reg:false};
+const today=()=>new Date().toISOString().slice(0,10);
+
+// ---------- auth ----------
+function showAuth(){$('#app').style.display='none';$('#auth').style.display='grid';$('#pw').value=''}
+function authMode(){$('#authTitle').textContent=$('#authBtn').textContent=S.reg?'Create account':'Sign in';
+  $('#authSwap').textContent=S.reg?'I already have an account':'Create an account';$('#pw').autocomplete=S.reg?'new-password':'current-password'}
+$('#authSwap').onclick=()=>{S.reg=!S.reg;authMode();$('#authErr').textContent=''};
+$('#authForm').onsubmit=async e=>{e.preventDefault();try{
+  const r=await api('POST',S.reg?'register':'login',{email:$('#em').value,password:$('#pw').value});await start(r.email)}
+  catch(x){$('#authErr').textContent=x.message}};
+async function start(email){$('#auth').style.display='none';$('#app').style.display='flex';$('#acctBtn').textContent=email;
+  S.lists=await api('GET','lists');S.cur=S.cur&&(S.cur==='starred'||S.lists.some(l=>l.id===S.cur))?S.cur:S.lists[0].id;await load()}
+$('#out').onclick=async()=>{await api('POST','logout');S.cur=null;showAuth()};
+$('#acctBtn').onclick=e=>{e.stopPropagation();$('#acctPop').classList.toggle('show')};
+document.addEventListener('click',()=>document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show')));
+$('#burger').onclick=e=>{e.stopPropagation();$('#nav').classList.toggle('open')};
+
+// ---------- dialogs ----------
+function dialog(html,onOpen){const d=$('#dlg');d.innerHTML=html;d.showModal();onOpen&&onOpen(d);return d}
+const closeDlg=()=>$('#dlg').close();
+function ask(title,val='',okLabel='Done'){return new Promise(res=>{const d=dialog(`<form method="dialog"><h3>${esc(title)}</h3><input name="v" value="${esc(val)}" required maxlength="120" autofocus>
+  <div class="acts"><button type="button" value="x">Cancel</button><button class="pri">${okLabel}</button></div></form>`,d=>{
+  d.querySelector('[type=button]').onclick=()=>{d.close();res(null)};d.querySelector('form').onsubmit=e=>{e.preventDefault();const v=d.querySelector('input').value.trim();d.close();res(v||null)}})})}
+const confirmBox=(msg,label='Delete')=>new Promise(res=>dialog(`<h3>${esc(msg)}</h3><div class="acts"><button id="n">Cancel</button><button id="y" class="pri">${label}</button></div>`,d=>{
+  d.querySelector('#n').onclick=()=>{d.close();res(false)};d.querySelector('#y').onclick=()=>{d.close();res(true)}}));
+
+$('#chPw').onclick=()=>dialog(`<form><h3>Change password</h3>
+  <label>Current password</label><input id="p0" type="password" autocomplete="current-password" required>
+  <label>New password (8+ characters)</label><input id="p1" type="password" autocomplete="new-password" required minlength="8">
+  <label>Confirm new password</label><input id="p2" type="password" autocomplete="new-password" required>
+  <div class="err" id="pe"></div><div class="acts"><button type="button" id="pc">Cancel</button><button class="pri">Update password</button></div></form>`,d=>{
+  d.querySelector('#pc').onclick=closeDlg;d.querySelector('form').onsubmit=async e=>{e.preventDefault();const pe=d.querySelector('#pe');
+    if(d.querySelector('#p1').value!==d.querySelector('#p2').value){pe.textContent='New passwords do not match';return}
+    try{await api('POST','password',{old:d.querySelector('#p0').value,new:d.querySelector('#p1').value});d.innerHTML='<h3>Password updated</h3><div class="acts"><button class="pri" id="ok">Close</button></div>';d.querySelector('#ok').onclick=closeDlg}
+    catch(x){pe.textContent=x.message}}});
+
+// ---------- data ----------
+async function load(){S.tasks=await api('GET','tasks'+(S.cur==='starred'?'?starred=1':'?list='+S.cur));render()}
+const curList=()=>S.lists.find(l=>l.id===S.cur);
+function dueLabel(d){if(!d)return'';const t=today(),x=new Date(d+'T00:00');const tm=new Date(Date.now()+864e5).toISOString().slice(0,10);
+  return d===t?'Today':d===tm?'Tomorrow':x.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}
+function sorted(a){const c=[...a];if(S.sort==='date')c.sort((x,y)=>(x.due||'9').localeCompare(y.due||'9'));
+  else if(S.sort==='title')c.sort((x,y)=>x.title.localeCompare(y.title));else if(S.sort==='star')c.sort((x,y)=>y.starred-x.starred);return c}
+
+// ---------- render ----------
+function render(){
+  $('#nav').innerHTML=`<button class="new" id="newList">＋ Create new list</button>
+   <button data-l="starred" class="${S.cur==='starred'?'on':''}">★ Starred</button>`+
+   S.lists.map(l=>`<button data-l="${l.id}" class="${l.id===S.cur?'on':''}">✓ ${esc(l.title)}</button>`).join('');
+  $('#nav').querySelectorAll('[data-l]').forEach(b=>b.onclick=async()=>{S.cur=b.dataset.l==='starred'?'starred':+b.dataset.l;$('#nav').classList.remove('open');await load()});
+  $('#newList').onclick=async()=>{const t=await ask('Create new list','','Done');if(!t)return;try{const l=await api('POST','lists',{title:t});S.lists.push(l);S.cur=l.id;await load()}catch(x){alert(x.message)}};
+  const star=S.cur==='starred',L=curList(),v=$('#view');
+  const top=S.tasks.filter(t=>!t.parent_id),kids=p=>S.tasks.filter(t=>t.parent_id===p);
+  const open=sorted(top.filter(t=>!t.done)),done=top.filter(t=>t.done);
+  const rowHtml=(t,sub)=>`<div class="row ${sub?'sub':''} ${t.done?'done':''}" data-id="${t.id}" ${!sub&&!t.done&&S.sort==='my'&&!star?'draggable="true"':''}>
+    <button class="chk" data-c="${t.id}" aria-label="${t.done?'Mark incomplete':'Mark complete'}">${t.done?'✓':''}</button>
+    <div class="tx"><div class="t">${esc(t.title)}</div>${t.details?`<div class="d">${esc(t.details)}</div>`:''}
+    ${t.due?`<span class="chip ${!t.done&&t.due<today()?'over':''}">${esc(dueLabel(t.due))}${t.repeat?' ↻':''}</span>`:''}</div>
+    <button class="star ${t.starred?'on':''}" data-s="${t.id}" aria-label="Star">${t.starred?'★':'☆'}</button></div>`;
+  const block=t=>rowHtml(t)+kids(t.id).filter(k=>!k.done||t.done).sort((a,b)=>a.pos-b.pos).map(k=>rowHtml(k,1)).join('')+kids(t.id).filter(k=>k.done&&!t.done).map(k=>rowHtml(k,1)).join('');
+  v.innerHTML=`<div class="top"><h2>${star?'Starred':esc(L.title)}</h2>
+    <div class="menu"><button id="mBtn" aria-label="List options">⋮</button><div class="pop" id="mPop">
+    <button disabled style="color:var(--mut)">Sort by</button>
+    ${[['my','My order'],['date','Date'],['star','Starred recently'],['title','Title']].map(([k,n])=>`<button class="ck ${S.sort===k?'on':''}" data-sort="${k}">${n}</button>`).join('')}
+    ${star?'':`<div class="sep"></div><button id="ren">Rename list</button><button id="delL">Delete list</button><button id="delD">Delete all completed tasks</button>`}</div></div></div>
+   ${star?'':`<button class="add" id="addBtn">＋ Add a task</button>`}
+   ${open.map(block).join('')||(done.length?'':`<div class="empty">${star?'No starred tasks':'No tasks yet.<br>Use “Add a task” to get started.'}</div>`)}
+   ${done.length?`<button class="sec" id="doneT">${S.showDone?'▾':'▸'} Completed (${done.length})</button>${S.showDone?done.map(block).join(''):''}`:''}`;
+  $('#mBtn').onclick=e=>{e.stopPropagation();$('#mPop').classList.toggle('show')};
+  v.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{S.sort=b.dataset.sort;render()});
+  if(!star){$('#addBtn').onclick=addForm;
+    $('#ren').onclick=async()=>{const t=await ask('Rename list',L.title);if(t){await api('PATCH','lists/'+L.id,{title:t});L.title=t;render()}};
+    $('#delL').onclick=async()=>{if(await confirmBox(`Delete “${L.title}” and its tasks?`)){try{await api('DELETE','lists/'+L.id);S.lists=S.lists.filter(l=>l!==L);S.cur=S.lists[0].id;await load()}catch(x){alert(x.message)}}};
+    $('#delD').onclick=async()=>{if(await confirmBox('Delete all completed tasks in this list?')){await api('POST',`lists/${L.id}/clear`);await load()}}}
+  if($('#doneT'))$('#doneT').onclick=()=>{S.showDone=!S.showDone;render()};
+  v.querySelectorAll('.row').forEach(r=>{const id=+r.dataset.id;r.onclick=()=>edit(id);
+    r.querySelector('[data-c]').onclick=async e=>{e.stopPropagation();const t=S.tasks.find(x=>x.id===id);await api('PATCH','tasks/'+id,{done:!t.done});await load()};
+    r.querySelector('[data-s]').onclick=async e=>{e.stopPropagation();const t=S.tasks.find(x=>x.id===id);await api('PATCH','tasks/'+id,{starred:!t.starred});await load()};
+    if(r.draggable){r.ondragstart=e=>{S.drag=id;r.classList.add('drag')};r.ondragend=()=>r.classList.remove('drag');
+      r.ondragover=e=>{e.preventDefault();r.classList.add('over')};r.ondragleave=()=>r.classList.remove('over');
+      r.ondrop=async e=>{e.preventDefault();const ids=open.map(t=>t.id).filter(x=>x!==S.drag);ids.splice(ids.indexOf(id),0,S.drag);
+        await api('POST','tasks/reorder',{ids});await load()}}});
+}
+
+function addForm(){const b=$('#addBtn');b.outerHTML=`<form id="af" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin:6px 0;display:grid;gap:8px">
+  <input name="t" placeholder="Title" required autofocus maxlength="200"><textarea name="d" rows="2" placeholder="Details"></textarea>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="date" name="due" style="width:auto"><button type="button" id="ac">Cancel</button><button class="pri">Add</button></div></form>`;
+  $('#ac').onclick=render;$('#af').onsubmit=async e=>{e.preventDefault();const f=e.target;
+    try{await api('POST','tasks',{list_id:S.cur,title:f.t.value,details:f.d.value,due:f.due.value});await load();addForm()}catch(x){alert(x.message)}}}
+
+function edit(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;const subs=S.tasks.filter(x=>x.parent_id===id);
+  dialog(`<form><h3>Edit task</h3><input id="e1" value="${esc(t.title)}" required maxlength="200" aria-label="Title">
+  <label>Details</label><textarea id="e2" rows="3">${esc(t.details)}</textarea>
+  <label>Date</label><input id="e3" type="date" value="${t.due||''}">
+  <label>Repeat</label><select id="e4">${[['','Does not repeat'],['daily','Daily'],['weekly','Weekly'],['monthly','Monthly'],['yearly','Yearly']].map(([k,n])=>`<option value="${k}" ${t.repeat===k?'selected':''}>${n}</option>`).join('')}</select>
+  <label>List</label><select id="e5">${S.lists.map(l=>`<option value="${l.id}" ${l.id===t.list_id?'selected':''}>${esc(l.title)}</option>`).join('')}</select>
+  ${t.parent_id?'':`<label>Subtasks${subs.length?` (${subs.length})`:''}</label><input id="e6" placeholder="Add a subtask and press Enter" maxlength="200">`}
+  <div class="acts" style="justify-content:space-between"><button type="button" id="e7" style="color:var(--over)">Delete</button>
+  <span><button type="button" id="e8">${t.starred?'★ Unstar':'☆ Star'}</button><button type="button" id="e9">Cancel</button><button class="pri">Save</button></span></div></form>`,d=>{
+    const q=s=>d.querySelector(s);let star=!!t.starred;q('#e8').onclick=()=>{star=!star;q('#e8').textContent=star?'★ Unstar':'☆ Star'};q('#e9').onclick=closeDlg;
+    q('#e7').onclick=async()=>{await api('DELETE','tasks/'+id);closeDlg();await load()};
+    if(q('#e6'))q('#e6').onkeydown=async e=>{if(e.key==='Enter'&&e.target.value.trim()){e.preventDefault();await api('POST','tasks',{list_id:t.list_id,parent_id:id,title:e.target.value});closeDlg();await load();edit(id)}};
+    q('form').onsubmit=async e=>{e.preventDefault();try{await api('PATCH','tasks/'+id,{title:q('#e1').value,details:q('#e2').value,due:q('#e3').value,repeat:q('#e4').value,starred:star,list_id:+q('#e5').value});closeDlg();await load()}catch(x){alert(x.message)}}})}
+
+authMode();
+api('GET','me').then(r=>start(r.email)).catch(showAuth);
+</script></body></html>
