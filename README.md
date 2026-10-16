@@ -1,74 +1,84 @@
-# SmartSecure: IoT-Based Multi-Factor Door Access System
+# Smart-Secure
 
-## Scenario Addressed
-**Home Automation - AI-Powered Smart Security Hub**
+Smart-Secure is a multi-project repository for smart security and communication systems. It combines IoT hardware experiments, access-control concepts, and several Python web apps focused on secure real-world workflows.
 
-## Project Overview
-SmartSecure is an IoT-enabled smart door access system that combines multiple authentication methods to provide secure and intelligent entry control.  
-The solution uses:
-- Fingerprint authentication
-- NFC/RFID card-based authentication
-- Camera-based face detection/recognition
-- Guest identity and temporary access management
+## Repository Overview
 
-The system is designed for smart homes and can be expanded to larger environments such as hostels, offices, and industrial spaces.
+This repository is organized as a monorepo with independent projects:
 
-## How the Solution Works
-1. A motion/proximity sensor detects a visitor and activates the system.
-2. The camera and display interface turn on.
-3. The user authenticates using fingerprint, RFID/NFC, or face recognition.
-4. Credentials are verified through local/controller logic (e.g., ESP32 + connected backend).
-5. If verified, the door unlocks and the event is logged.
-6. If not verified, access is denied or switched to guest mode (temporary Guest ID / remote approval).
+| Path | Purpose | Stack |
+|---|---|---|
+| `chatly/` | WhatsApp-style real-time chat app with accounts, 2FA, recovery flow, groups, and encrypted-at-rest messages | FastAPI, SQLite, WebSocket, vanilla JS |
+| `harbor-python/` | Drive-style file storage and sharing app with previews, quotas, sharing, and TOTP | Flask, SQLite, vanilla JS |
+| `postly-py/` | Self-hosted Gmail-style mail app with SMTP receive/send and web inbox | FastAPI, SQLite, aiosmtpd |
+| `uno_q_media/` | Lightweight media server for Arduino UNO Q devices | Python stdlib HTTP server |
+| `lineal/` | Issue-tracking backend with authentication and session security | Flask, SQLite |
+| `task/` | Google Tasks-style task manager with lists, subtasks, repeats, and ordering | Flask, SQLite |
+| `Concept_Test/` | IoT concept prototypes (camera flows, MQTT, web control demos, Arduino sketches) | Python, Arduino, HTML/JS |
+| `Hardware Testing/` | Hardware validation sketches and scripts for sensors and connectivity | Arduino, Python |
 
-## Main Features
-- Multi-factor authentication for high security
-- AI-assisted face recognition and visitor monitoring
-- Guest mode with temporary access handling
-- Smart display with real-time instructions and access feedback
-- IoT connectivity for remote monitoring and alerts
-- Entry/exit logging with timestamp and identity
-- Automated door control through actuator integration
+## Core Smart-Secure Theme
 
-## Sustainability Focus
-SmartSecure is designed to reduce power and resource usage by:
-- Using low-power hardware such as ESP32
-- Using sleep/standby modes when idle
-- Activating high-power modules (camera/display) only on detection events
-- Reducing physical key/material dependence through digital authentication
-- Supporting modular upgrades and possible solar integration
+The hardware and concept directories focus on secure smart-access scenarios such as:
+- Sensor-triggered flows
+- Multi-factor identity checks (face/card/fingerprint conceptually)
+- Remote control and monitoring patterns
+- Embedded-to-server communication (MQTT, socket-based prototypes)
 
-## User Experience
-- Fast and intuitive access flow
-- Clear on-screen prompts and instant status feedback ("Access Granted" / "Access Denied")
-- Easy integration with existing door hardware and IoT/security workflows
-- Simple remote control and monitoring from a connected dashboard
+## Quick Start (choose a subproject)
 
-## Scalability
-The architecture is modular and cloud-compatible, allowing:
-- Expansion from single-door to multi-door/building-wide access
-- Centralized user and access-rule management
-- Role-based access control for enterprise use cases
-- Adaptation to homes, offices, labs, hostels, and industry
+Each app is self-contained with its own dependencies and README.
 
-## App Lab Integration
-App Lab can be used as an interactive dashboard for:
-- Real-time access logs and system status
-- Alert display and monitoring
-- Remote guest approval
-- Controlled remote unlock actions
+### Chatly
+```bash
+cd /home/runner/work/Smart-Secure/Smart-Secure/chatly
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
 
-## AI Integration
-AI is used for:
-- Real-time face recognition of authorized users
-- Unknown visitor detection
-- Access-pattern analysis
-- Suspicious behavior detection and adaptive security decisions
+### Harbor
+```bash
+cd /home/runner/work/Smart-Secure/Smart-Secure/harbor-python
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
 
-## Team / Electronic Signature
-By project submission acknowledgment:
-- **Sahil Kumar Patra**
-- **Dipankar Ghosh**
-- **Paawan Jain**
+### Postly
+```bash
+cd /home/runner/work/Smart-Secure/Smart-Secure/postly-py
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
 
-This README represents the SmartSecure concept and submission summary based on the provided problem statement.
+### Task
+```bash
+cd /home/runner/work/Smart-Secure/Smart-Secure/task
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+### Lineal
+```bash
+cd /home/runner/work/Smart-Secure/Smart-Secure/lineal
+python -m venv .venv && source venv/bin/activate
+pip install -r requirements.txt
+JWT_SECRET="$(openssl rand -hex 32)" python app.py
+```
+
+## Testing
+
+Testing is project-specific. Run tests from inside the relevant project directory and follow that folder's README (examples include `pytest`, `unittest`, and app-specific smoke/UI tests).
+
+## Notes
+
+- Keep runtime data files (`*.db`, secret keys, uploaded media) out of version control.
+- Use HTTPS and secure cookie settings when deploying internet-facing services.
+- For hardware modules, use the sketches and scripts in `Concept_Test/` and `Hardware Testing/` as experimental references.
+
+## License
+
+This repository is licensed under the terms in [`LICENSE`](LICENSE).
