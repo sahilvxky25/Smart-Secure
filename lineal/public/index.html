@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lineal – Issue Tracker</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#fff;--bg2:#f7f7f8;--bd:#e6e6e9;--tx:#1b1b1f;--mu:#80808a;--ac:#5e6ad2;--hv:#efeff2;--sh:0 8px 30px rgba(0,0,0,.15)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#101012;--bg2:#17171a;--bd:#2a2a30;--tx:#ececf0;--mu:#8b8b96;--hv:#202025;--sh:0 8px 30px rgba(0,0,0,.6)}}
+:root[data-theme=dark]{--bg:#101012;--bg2:#17171a;--bd:#2a2a30;--tx:#ececf0;--mu:#8b8b96;--hv:#202025;--sh:0 8px 30px rgba(0,0,0,.6)}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+#app{display:flex;height:100%}
+aside{width:220px;background:var(--bg2);border-right:1px solid var(--bd);padding:12px 8px;display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.brand{font-weight:600;padding:4px 8px 10px;display:flex;align-items:center;gap:8px}
+.logo{width:20px;height:20px;border-radius:6px;background:var(--ac)}
+.nav{display:flex;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--mu);border:0;background:none;text-align:left;width:100%}
+.nav:hover,.nav.on{background:var(--hv);color:var(--tx)}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}
+.ghost{background:none;border:1px solid var(--bd);color:var(--tx)}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+header h1{font-size:15px;margin:0;flex:1}
+input.s,select,textarea,.ti{background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:5px 8px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+#content{flex:1;overflow:auto}
+.grp{padding:6px 16px;background:var(--bg2);border-bottom:1px solid var(--bd);font-weight:500;display:flex;gap:8px;align-items:center;position:sticky;top:0}
+.row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--bd);cursor:pointer}
+.row:hover,.card:hover{background:var(--hv)}
+.row .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mu{color:var(--mu);font-size:12px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+.tag{font-size:11px;border:1px solid var(--bd);border-radius:10px;padding:0 7px;color:var(--mu)}
+.board{display:flex;gap:12px;padding:12px;height:100%;overflow-x:auto}
+.col{width:260px;flex-shrink:0;background:var(--bg2);border-radius:8px;display:flex;flex-direction:column;max-height:100%}
+.col .grp{background:none;border:0}.cards{padding:0 8px 8px;overflow:auto;flex:1;min-height:40px}
+.card{background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:8px;margin-bottom:6px;cursor:pointer}
+.col.over{outline:2px dashed var(--ac)}
+.empty{padding:60px 20px;text-align:center;color:var(--mu)}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--bg);border-left:1px solid var(--bd);box-shadow:var(--sh);padding:calc(16px + env(safe-area-inset-top,0px)) 16px 16px;overflow:auto;z-index:20}
+#drawer .ti{width:100%;font-size:18px;font-weight:600;border-color:transparent;padding-left:0}
+#drawer textarea{width:100%;min-height:110px;resize:vertical}
+.props{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:center;margin:12px 0}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;z-index:30}
+.box{background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);width:min(560px,94%);padding:14px;display:flex;flex-direction:column;gap:8px}
+.pal{padding:6px 10px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between}
+.pal:hover,.pal.on{background:var(--hv)}
+.cm{border-top:1px solid var(--bd);padding:8px 0}
+@media(max-width:700px){aside{display:none}}
+</style></head><body>
+<div id="app"></div>
+<script>
+const ST=[["backlog","Backlog","#8b8b96"],["todo","Todo","#c9c9d1"],["progress","In Progress","#f2c94c"],["review","In Review","#5e6ad2"],["done","Done","#4cb782"],["canceled","Canceled","#eb5757"]];
+const PR=["No priority","Urgent","High","Medium","Low"],PRI=["—","⚑","▲","■","▼"];
+const LB=["Bug","Feature","Improvement"],PJ=["Web","Mobile","API"];
+const S={issues:[],view:"board",f:"all",q:"",sel:null,modal:null,pal:"",me:null,names:{},people:[],db:null,ref:null,loaded:false};
+const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const stI=k=>ST.find(s=>s[0]===k)||ST[0],isAct=i=>["todo","progress","review"].includes(i.status);
+const nm=id=>!id?"Unassigned":id===S.me?"Me":(S.names[id]||"Someone");
+
+async function api(p,o={}){const r=await fetch("/api"+p,{method:o.method||"GET",headers:{"Content-Type":"application/json"},body:o.body?JSON.stringify(o.body):undefined,credentials:"same-origin"});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Request failed");return j}
+let timer;const poll=()=>{clearInterval(timer);timer=setInterval(load,5000)};
+async function load(){try{const[a,u]=await Promise.all([api("/issues"),api("/users")]);S.issues=a;S.people=u.map(x=>x.id);u.forEach(x=>S.names[x.id]=x.name);S.loaded=true;
+  if(!S.modal&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName))render()}catch(e){if(e.message==="auth"){S.me=null;clearInterval(timer);render()}}}
+async function init(){try{const m=await api("/me");S.me=m.id;S.user=m;S.names[m.id]=m.name;await load();poll()}catch(e){S.me=null}S.loaded=true;render()}
+function save(i){const idx=S.issues.findIndex(x=>x.id===i.id),isNew=idx<0;if(isNew)S.issues.push(i);else S.issues[idx]=i;render();
+  api(isNew?"/issues":"/issues/"+i.id,{method:isNew?"POST":"PUT",body:i}).catch(e=>alert(e.message))}
+function del(id){S.issues=S.issues.filter(x=>x.id!==id);S.sel=null;render();api("/issues/"+id,{method:"DELETE"}).catch(e=>alert(e.message))}
+function newIssue(o){const n=Math.max(0,...S.issues.map(i=>i.num||0))+1;
+  const i={id:"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),num:n,title:o.title,desc:o.desc||"",status:o.status||"todo",priority:+o.priority||0,label:o.label||"",project:o.project||"",assignee:o.assignee||"",created:Date.now(),comments:[]};save(i);return i}
+
+function visible(){const q=S.q.toLowerCase();return S.issues.filter(i=>{
+  if(S.f==="mine"&&i.assignee!==S.me)return false;if(S.f==="active"&&!isAct(i))return false;if(S.f==="backlog"&&i.status!=="backlog")return false;
+  if(S.f.startsWith("p:")&&i.project!==S.f.slice(2))return false;
+  return !q||(i.title+" "+i.desc+" LIN-"+i.num+" "+i.label).toLowerCase().includes(q)}).sort((a,b)=>(a.priority||9)-(b.priority||9)||b.created-a.created)}
+const sel=(k,opts,v,extra="")=>`<select data-k="${k}" ${extra}>${opts.map(([val,l])=>`<option value="${esc(val)}" ${val==v?"selected":""}>${esc(l)}</option>`).join("")}</select>`;
+const issueRow=i=>`<div class="row" data-open="${i.id}"><span class="mu">LIN-${i.num}</span><span class="dot" style="background:${stI(i.status)[2]}"></span><span class="t">${esc(i.title)}</span>${i.label?`<span class="tag">${esc(i.label)}</span>`:""}<span class="mu" title="${PR[i.priority]}">${PRI[i.priority]}</span><span class="mu">${esc(nm(i.assignee))}</span></div>`;
+
+function content(){const v=visible();
+  if(!S.loaded)return`<div class="empty">Loading…</div>`;
+  if(!S.issues.length)return`<div class="empty"><p>No issues yet.</p><button class="btn" data-act="new">Create your first issue (C)</button></div>`;
+  if(S.view==="list")return ST.map(([k,l,c])=>{const g=v.filter(i=>i.status===k);return g.length?`<div class="grp"><span class="dot" style="background:${c}"></span>${l} <span class="mu">${g.length}</span></div>${g.map(issueRow).join("")}`:""}).join("")||`<div class="empty">No matching issues</div>`;
+  return`<div class="board">${ST.map(([k,l,c])=>{const g=v.filter(i=>i.status===k);return`<div class="col" data-col="${k}"><div class="grp"><span class="dot" style="background:${c}"></span>${l} <span class="mu">${g.length}</span></div><div class="cards">${g.map(i=>`<div class="card" draggable="true" data-drag="${i.id}" data-open="${i.id}"><div class="mu">LIN-${i.num} · ${esc(nm(i.assignee))}</div><div>${esc(i.title)}</div><div style="margin-top:4px;display:flex;gap:6px"><span class="mu">${PRI[i.priority]} ${PR[i.priority]}</span>${i.label?`<span class="tag">${esc(i.label)}</span>`:""}</div></div>`).join("")}</div></div>`}).join("")}</div>`}
+
+function drawer(){const i=S.issues.find(x=>x.id===S.sel);if(!i)return"";
+  const ppl=[["","Unassigned"],...(S.me?[[S.me,"Me"]]:[]),...S.people.filter(p=>p!==S.me).map(p=>[p,nm(p)])];
+  return`<div id="drawer" data-id="${i.id}"><div style="display:flex;justify-content:space-between"><span class="mu">LIN-${i.num} · ${new Date(i.created).toLocaleDateString()}</span><span><button class="btn ghost" data-act="del">Delete</button> <button class="btn ghost" data-act="close">✕</button></span></div>
+  <input class="ti" data-k="title" value="${esc(i.title)}"><textarea data-k="desc" placeholder="Add description…">${esc(i.desc)}</textarea>
+  <div class="props"><span class="mu">Status</span>${sel("status",ST.map(s=>[s[0],s[1]]),i.status)}<span class="mu">Priority</span>${sel("priority",PR.map((p,n)=>[n,p]),i.priority)}<span class="mu">Assignee</span>${sel("assignee",ppl,i.assignee)}<span class="mu">Label</span>${sel("label",[["","None"],...LB.map(l=>[l,l])],i.label)}<span class="mu">Project</span>${sel("project",[["","None"],...PJ.map(l=>[l,l])],i.project)}</div>
+  <b>Comments</b>${(i.comments||[]).map(c=>`<div class="cm"><span class="mu">${esc(nm(c.by))} · ${new Date(c.at).toLocaleString()}</span><div>${esc(c.t)}</div></div>`).join("")}
+  <div style="display:flex;gap:6px;margin-top:8px"><input class="s" id="cmt" style="flex:1" placeholder="Leave a comment…"><button class="btn" data-act="comment">Send</button></div></div>`}
+
+function modal(){if(S.modal==="pw")return pwView();if(S.modal==="new")return`<div class="modal" data-act="bg"><div class="box" id="nb"><input class="ti" id="nt" placeholder="Issue title" autofocus><textarea id="nd" placeholder="Description (optional)" rows="4"></textarea>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="ns">${ST.map(s=>`<option value="${s[0]}" ${s[0]==="todo"?"selected":""}>${s[1]}</option>`)}</select><select id="np">${PR.map((p,n)=>`<option value="${n}">${p}</option>`)}</select><select id="nl"><option value="">No label</option>${LB.map(l=>`<option>${l}</option>`)}</select><select id="nj"><option value="">No project</option>${PJ.map(l=>`<option>${l}</option>`)}</select><span style="flex:1"></span><button class="btn" data-act="create">Create issue</button></div></div></div>`;
+  if(S.modal==="pal"){const q=S.pal.toLowerCase();const acts=[["New issue","new"],["Board view","board"],["List view","list"],["My issues","f:mine"],["All issues","f:all"],["Toggle theme","theme"]].filter(a=>a[0].toLowerCase().includes(q));
+  const is=q?S.issues.filter(i=>(i.title+" lin-"+i.num).toLowerCase().includes(q)).slice(0,8):[];
+  return`<div class="modal" data-act="bg"><div class="box"><input class="s" id="pq" placeholder="Type a command or search issues…" value="${esc(S.pal)}">${acts.map(a=>`<div class="pal" data-pal="${a[1]}">${a[0]}</div>`).join("")}${is.map(i=>`<div class="pal" data-open="${i.id}">${esc(i.title)}<span class="mu">LIN-${i.num}</span></div>`).join("")}</div></div>`}return""}
+
+function render(){if(!S.me){$("#app").innerHTML=authView();$("#ae")?.focus();return}const act=document.activeElement?.id;const cnt=f=>S.issues.filter(i=>f==="all"||(f==="mine"?i.assignee===S.me&&S.me:f==="active"?isAct(i):f==="backlog"?i.status==="backlog":i.project===f.slice(2))).length;
+  const N=(f,l)=>`<button class="nav ${S.f===f?"on":""}" data-f="${f}"><span>${l}</span><span>${cnt(f)}</span></button>`;
+  $("#app").innerHTML=`<aside><div class="brand"><span class="logo"></span>Lineal</div><button class="btn" data-act="new" style="margin-bottom:8px">+ New issue</button>${N("all","All issues")}${N("mine","My issues")}${N("active","Active")}${N("backlog","Backlog")}<div class="mu" style="padding:12px 8px 4px">Projects</div>${PJ.map(p=>N("p:"+p,p)).join("")}<span style="flex:1"></span><div class="mu" style="padding:4px 8px">${esc(S.user?.name||"")}</div><button class="nav" data-act="pw-open">Change password</button><button class="nav" data-act="logout">Log out</button><button class="nav" data-act="theme">Toggle theme</button><div class="mu" style="padding:4px 8px">⌘K commands · C new</div></aside>
+  <main><header><h1>${esc(S.f.startsWith("p:")?S.f.slice(2):{all:"All issues",mine:"My issues",active:"Active",backlog:"Backlog"}[S.f])}</h1><input class="s" id="q" placeholder="Search…" value="${esc(S.q)}"><button class="btn ghost" data-act="view">${S.view==="board"?"List":"Board"}</button><button class="btn" data-act="new">New</button></header><div id="content">${content()}</div></main>${drawer()}${modal()}`;
+  if(act==="q"){const e=$("#q");e.focus();e.setSelectionRange(99,99)}if(S.modal==="pal")$("#pq")?.focus();if(S.modal==="new")$("#nt")?.focus();if(S.modal==="pw")$("#pc")?.focus()}
+
+const cur=()=>S.issues.find(x=>x.id===S.sel);
+document.addEventListener("click",e=>{const t=e.target;
+  const f=t.closest("[data-f]");if(f){S.f=f.dataset.f;return render()}
+  const p=t.closest("[data-pal]");if(p){const a=p.dataset.pal;S.modal=null;if(a==="new")S.modal="new";else if(a==="theme")theme();else if(a[0]==="f")S.f=a.slice(2);else S.view=a;return render()}
+  const o=t.closest("[data-open]");if(o){S.sel=o.dataset.open;S.modal=null;return render()}
+  const a=t.closest("[data-act]")?.dataset.act;if(!a)return;
+  if(a==="bg"&&t.dataset.act==="bg"){S.modal=null;render()}
+  if(a==="new"){S.modal="new";render()}if(a==="view"){S.view=S.view==="board"?"list":"board";render()}
+  if(a==="close"){S.sel=null;render()}if(a==="theme")theme();
+  if(a==="del"&&confirm("Delete this issue?"))del(S.sel);
+  if(a==="create"){const ti=$("#nt").value.trim();if(!ti)return $("#nt").focus();S.modal=null;newIssue({title:ti,desc:$("#nd").value,status:$("#ns").value,priority:$("#np").value,label:$("#nl").value,project:$("#nj").value,assignee:S.f==="mine"?S.me:""})}
+  if(a==="comment"){const v=$("#cmt").value.trim(),i=cur();if(v&&i)save({...i,comments:[...(i.comments||[]),{t:v,by:S.me||"",at:Date.now()}]})}});
+function theme(){const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme:dark)").matches);r.dataset.theme=d?"light":"dark"}
+document.addEventListener("input",e=>{const t=e.target;
+  if(t.id==="q"){S.q=t.value;$("#content").innerHTML=content()}
+  if(t.id==="pq"){S.pal=t.value;const pos=t.selectionStart;render();$("#pq").setSelectionRange(pos,pos)}
+  if(t.dataset.k==="title"||t.dataset.k==="desc"){const i=cur();if(i){clearTimeout(window._d);window._d=setTimeout(()=>{const k=t.dataset.k;const c=cur();if(c)save({...c,[k]:t.value});},500)}}});
+document.addEventListener("change",e=>{const t=e.target,k=t.dataset.k;if(!k||k==="title"||k==="desc")return;const i=cur();if(i)save({...i,[k]:k==="priority"?+t.value:t.value})});
+document.addEventListener("keydown",e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();S.modal="pal";S.pal="";return render()}
+  if(e.key==="Escape"){S.modal=null;S.sel=null;return render()}
+  if(e.key==="Enter"&&e.target.id==="cmt")return $("[data-act=comment]").click();
+  if(e.key==="Enter"&&e.target.id==="nt")return $("[data-act=create]").click();
+  if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.metaKey||e.ctrlKey)return;
+  if(e.key==="c"){e.preventDefault();S.modal="new";render()}});
+let dragId=null;
+document.addEventListener("dragstart",e=>{dragId=e.target.closest?.("[data-drag]")?.dataset.drag});
+document.addEventListener("dragover",e=>{const c=e.target.closest?.("[data-col]");if(c&&dragId){e.preventDefault();document.querySelectorAll(".col.over").forEach(x=>x.classList.remove("over"));c.classList.add("over")}});
+document.addEventListener("drop",e=>{const c=e.target.closest?.("[data-col]");if(c&&dragId){e.preventDefault();const i=S.issues.find(x=>x.id===dragId);dragId=null;if(i&&i.status!==c.dataset.col)save({...i,status:c.dataset.col});else render()}});
+function authView(){const su=S.auth==="signup";return`<div style="margin:auto;width:min(360px,92%);display:flex;flex-direction:column;gap:10px;padding:24px"><div class="brand"><span class="logo"></span>Lineal</div><h2 style="margin:0">${su?"Create account":"Log in"}</h2>${su?'<input class="s" id="an" placeholder="Name" autocomplete="name">':""}<input class="s" id="ae" type="email" placeholder="Email" autocomplete="email"><input class="s" id="ap" type="password" placeholder="Password${su?" (min 8 characters)":""}" autocomplete="${su?"new-password":"current-password"}">${su?'<input class="s" id="ai" placeholder="Invite code (if required)">':""}<div id="aerr" style="color:#eb5757;min-height:18px"></div><button class="btn" data-act="${su?"signup":"login"}">${su?"Sign up":"Log in"}</button><button class="nav" data-act="authmode" style="justify-content:center">${su?"Have an account? Log in":"No account? Sign up"}</button></div>`}
+function pwView(){return`<div class="modal" data-act="bg"><div class="box"><b>Change password</b><input class="s" id="pc" type="password" placeholder="Current password" autocomplete="current-password"><input class="s" id="pn" type="password" placeholder="New password (min 8 characters)" autocomplete="new-password"><input class="s" id="pn2" type="password" placeholder="Confirm new password" autocomplete="new-password"><div id="aerr" style="color:#eb5757;min-height:18px"></div><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn ghost" data-act="bg">Cancel</button><button class="btn" data-act="pw-save">Update password</button></div></div></div>`}
+const val=id=>document.getElementById(id)?.value||"",showErr=m=>{const e=$("#aerr");e?e.textContent=m:alert(m)};
+document.addEventListener("click",async e=>{const a=e.target.closest("[data-act]")?.dataset.act;try{
+  if(a==="authmode"){S.auth=S.auth==="signup"?"login":"signup";render()}
+  else if(a==="login"||a==="signup"){const b={email:val("ae"),password:val("ap")};if(a==="signup"){b.name=val("an");b.invite=val("ai")}
+    const m=await api(a==="login"?"/login":"/register",{method:"POST",body:b});S.me=m.id;S.user=m;S.names[m.id]=m.name;S.loaded=false;render();await load();poll()}
+  else if(a==="logout"){await api("/logout",{method:"POST"});clearInterval(timer);S.me=null;S.user=null;S.issues=[];S.sel=null;S.auth="login";render()}
+  else if(a==="pw-open"){S.modal="pw";render()}
+  else if(a==="pw-save"){if(val("pn")!==val("pn2"))return showErr("New passwords don't match");
+    await api("/change-password",{method:"POST",body:{current:val("pc"),next:val("pn")}});S.modal=null;render();alert("Password updated.")}
+}catch(err){showErr(err.message)}});
+document.addEventListener("keydown",e=>{if(e.key!=="Enter")return;
+  if(["ae","ap","an","ai"].includes(e.target.id))$("[data-act=login],[data-act=signup]")?.click();
+  if(["pc","pn","pn2"].includes(e.target.id))$("[data-act=pw-save]")?.click()});
+init();
+</script></body></html>
