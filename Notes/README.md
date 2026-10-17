@@ -16,7 +16,7 @@ Open <http://localhost:5000>. On first run you'll be asked to create the first a
 ## Project layout
 
 ```
-notion_clone/
+Notes/
 ├── app.py            Flask backend: auth, pages API, uploads, sharing, export
 ├── index.html        The whole frontend (HTML, CSS and JS in one file)
 ├── requirements.txt  Just Flask
