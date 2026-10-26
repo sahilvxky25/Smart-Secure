@@ -1,0 +1,140 @@
+# QR and Barcode Scanner
+
+The **QR and Barcode Scanner** example lets you detect and scan both barcodes and QR codes using a camera. It features a web-based interface that streams the live camera feed and displays the scanned codes content. Also, it stores the detected codes in a local database for future reference.
+
+**Note:** This example requires to be run using **Network Mode** in the Arduino App Lab or in **Single-Board Computer (SBC)** mode, since you will need a [USB-C® hub](https://store.arduino.cc/products/usb-c-hub-8-in-1) to connect the camera _(only for UNO Q)_.
+
+![Code Detector Example](assets/docs_assets/thumbnail.png)
+
+## Description
+The app captures video input from a connected camera and continuously scans for barcodes and QR codes. When a code is detected, its data is saved to a local SQL database. The web interface allows users to view a live list of all detected codes, including their type and timestamp, updating in real-time as new codes are scanned.
+
+The `assets` folder contains the **database** and **frontend** components of the application. Inside, you’ll find the JavaScript source files along with the HTML and CSS files that make up the web user interface. The `python` folder instead includes the application **backend**.
+
+This example only uses the board's CPU for running the application since no C++ sketch is present in the example structure.
+
+## Bricks Used
+
+The code detector example uses the following Bricks:
+
+- `camera_code_detection`: Brick to detect barcodes and QR codes using a camera.
+- `dbstorage_sqlstore`: Brick to store the detected codes in a database.
+- `web_ui`: Brick to create a web interface to display the detected codes and the camera live feed.
+
+## Hardware Requirements
+
+### Hardware
+
+- Arduino UNO Q (x1) or Arduino VENTUNO Q (x1)
+- [USB-C® cable](https://store.arduino.cc/products/usb-c-cable-24-pin) (for power and programming) (x1) _(only for UNO Q)_
+- Camera (USB, or CSI using [Arduino® UNO™ Media Carrier](https://store.arduino.cc/products/uno-media-carrier) on the UNO Q) (x1)
+- [USB-C® hub](https://store.arduino.cc/products/usb-c-hub-8-in-1) adapter with external power (x1) _(only for UNO Q)_
+- A power supply (5 V, 3 A) for the USB hub (e.g. a phone charger) _(only for UNO Q)_
+- Personal computer with internet access
+
+**Note:** You can also run this example using your board as a Single Board Computer (SBC) with a mouse, keyboard and display attached (on the UNO Q through a [USB-C® hub](https://store.arduino.cc/products/usb-c-hub-8-in-1)).
+
+## How to Use the Example
+
+*Note, this example was created using the Arduino UNO Q but also works with VENTUNO Q.*
+
+1. Connect the camera to the board (on the UNO Q, a USB camera needs a powered [USB-C® hub](https://store.arduino.cc/products/usb-c-hub-8-in-1)).
+
+   ![Hardware setup](assets/docs_assets/hardware-setup.png)
+
+2. Run the App by clicking the **Run** button in the top navigation bar.
+
+3. The App should open automatically in the web browser. You can open it manually via `<board-name>.local:7000`.
+
+4. Detected codes will appear in real-time on the web interface, showing their type and timestamp.
+
+5. Click *Scan another* to repeat the process
+
+6. Review the list of scanned codes directly from your browser as new codes are detected.
+
+## How it Works
+
+Here is a brief explanation of the full-stack application:
+
+### 🔧 Backend (main.py)
+
+- Initializes a camera (`Camera`) and a QR/barcode detector (`CameraCodeDetector`).
+
+- For each frame:
+  - Streams it to the frontend (`on_frame`)
+  - If a code is detected:
+    - Draws a bounding box
+    - Encodes the image to Base64
+    - Stores scan data (type, content, timestamp, image) in a SQLite database
+    - Sends the scan result to the frontend (`code_detected`)
+
+- Exposes:
+  - **WebSocket**: reset detection (`reset_detection`) for starting a new scan.
+  - **REST API**: list last 5 scans (`/list_scans`) stored in the database.
+- Runs with `App.run()` which handles the internal event loop.
+
+### 💻 Frontend (index.html + app.js)
+
+- Connects to the backend using `WebUI`.
+- Renders:
+  - Live video feed from the camera (`frame_detected`)
+  - Last detected code with timestamp and copy/link icon (`code_detected`)
+  - List of last 5 scans (`/list_scans` API)
+
+- User can trigger a rescan with a button (`rescan()`).
+- Uses `<canvas>` to display images and decodes _Base64_ image data.
+
+## Understanding the Code
+
+Once the application is running, you can access it from your web browser by navigating to `<UNO-Q-IP-ADDRESS>:7000`. At that point, the device begins performing the following:
+
+- **Continuously capturing frames from the connected camera.**
+
+    The following module provides a convenient way to integrate the camera into the application using a custom OpenCV-based class:
+    
+    ```python
+    from arduino.app_peripherals.camera import Camera
+    ```
+
+    To start capturing frames, initialize the camera with:
+    
+    ```python
+    camera = Camera(resolution=(640, 480), fps=60)
+    ```
+- **Searching for codes and processing the camera frames.**
+    
+    The following Brick provides barcodes and QR codes detection capabilities:
+
+    ```python
+    from arduino.app_bricks.camera_code_detector import CameraCodeDetector, Detection, draw_bounding_box
+    ```
+    The `CameraCodeDetector` class takes the previously captured camera frame to search for codes in it.
+    ```python
+    detector = CameraCodeDetector(camera)
+    ```
+    The following callback functions handle the different results of the code detector Brick.
+
+    `detector.on_detect(on_code_detected)`: When a barcode or QR code is detected in a frame, the handler draws a bounding box around it, encodes the frame as a Base64 image, stores the code content along with metadata in the database, and sends the result to the web UI in real time.
+
+    `detector.on_frame(on_frame)`: Handles every frame captured by the camera, encodes it as a Base64 image, and streams it to the web UI for live video display.
+
+    `detector.on_error(on_error)`: Handles exceptions from the detector.
+   
+- **Deploying and rendering the web UI.**
+
+  The following Brick imports the web user interface.
+
+  ```python
+  from arduino.app_bricks.web_ui import WebUI
+  ```
+
+  The web UI is deployed and exposed to the local network through the `webUI` class.
+
+  ```python
+  ui = WebUI()
+  ui.expose_api('GET', '/list_scans', on_list_scans)
+  ui.on_message('reset_detection', reset_detection)
+  ```
+
+  - The `on_list_scans` function, returns the database stored codes to be shown in the UI.
+  - The `reset_detection` function handles the UI button to restart the code scanning process.
